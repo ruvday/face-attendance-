@@ -13,8 +13,6 @@ export default function Employees() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
-    email: '',
-    password: '',
     employeeCode: '',
     department: '',
     position: ''
@@ -44,8 +42,6 @@ export default function Employees() {
       setIsDialogOpen(false);
       setFormData({
         fullName: '',
-        email: '',
-        password: '',
         employeeCode: '',
         department: '',
         position: ''
@@ -94,14 +90,6 @@ export default function Employees() {
                   <Input id="fullName" required value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} placeholder="Jane Doe" />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="jane@company.com" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Login Password</Label>
-                  <Input id="password" type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="••••••••" />
-                </div>
-                <div className="grid gap-2">
                   <Label htmlFor="employeeCode">Employee Code</Label>
                   <Input id="employeeCode" required value={formData.employeeCode} onChange={e => setFormData({ ...formData, employeeCode: e.target.value })} placeholder="EMP1024" />
                 </div>
@@ -130,7 +118,7 @@ export default function Employees() {
             <TableRow>
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>6-Digit Login Code</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Position</TableHead>
               <TableHead>Face Registered</TableHead>
@@ -150,7 +138,11 @@ export default function Employees() {
                     <UserPlus className="w-4 h-4 text-slate-400" />
                     <span>{emp.full_name}</span>
                   </TableCell>
-                  <TableCell>{emp.email}</TableCell>
+                  <TableCell>
+                    <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-lg font-bold tracking-widest text-blue-600 dark:text-blue-400">
+                      {emp.login_code || '----'}
+                    </span>
+                  </TableCell>
                   <TableCell>{emp.department || 'N/A'}</TableCell>
                   <TableCell>{emp.position || 'N/A'}</TableCell>
                   <TableCell>

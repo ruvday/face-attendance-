@@ -6,11 +6,19 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { ScanFace } from 'lucide-react';
+import { ScanFace, UserCircle, Building2 } from 'lucide-react';
 
 export default function Login() {
+  const [loginMethod, setLoginMethod] = useState<'employee' | 'admin'>('employee');
+  
+  // Employee state
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [loginCode, setLoginCode] = useState('');
+  
+  // Admin state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -23,7 +31,13 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { email, password });
+      let response;
+      if (loginMethod === 'employee') {
+        response = await api.post('/auth/employee-login', { tenantSlug, loginCode });
+      } else {
+        response = await api.post('/auth/login', { email, password });
+      }
+      
       setAuth(response.data.user, response.data.token);
       
       const role = response.data.user.role;
@@ -61,8 +75,24 @@ export default function Login() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <Card className="border-0 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle>Sign in</CardTitle>
-            <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg mb-4">
+              <button
+                onClick={() => { setLoginMethod('employee'); setError(''); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${loginMethod === 'employee' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Employee Login
+              </button>
+              <button
+                onClick={() => { setLoginMethod('admin'); setError(''); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${loginMethod === 'admin' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Admin Login
+              </button>
+            </div>
+            <CardTitle>{loginMethod === 'employee' ? 'Employee Access' : 'Admin Access'}</CardTitle>
+            <CardDescription>
+              {loginMethod === 'employee' ? 'Enter your company code and 4-digit PIN.' : 'Sign in to manage your company.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -72,30 +102,61 @@ export default function Login() {
                 </div>
               )}
               
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  required 
-                  placeholder="admin@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/50 dark:bg-slate-800/50"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  required 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-white/50 dark:bg-slate-800/50"
-                />
-              </div>
+              {loginMethod === 'employee' ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="tenantSlug" className="flex items-center gap-2"><Building2 className="w-4 h-4"/> Company Code</Label>
+                    <Input 
+                      id="tenantSlug" 
+                      type="text" 
+                      required 
+                      placeholder="e.g. apple-inc"
+                      value={tenantSlug}
+                      onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
+                      className="bg-white/50 dark:bg-slate-800/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="loginCode" className="flex items-center gap-2"><UserCircle className="w-4 h-4"/> 4-Digit Employee Code</Label>
+                    <Input 
+                      id="loginCode" 
+                      type="text" 
+                      required 
+                      maxLength={10}
+                      placeholder="e.g. 5829"
+                      value={loginCode}
+                      onChange={(e) => setLoginCode(e.target.value)}
+                      className="bg-white/50 dark:bg-slate-800/50 text-xl tracking-widest font-mono"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email address</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      required 
+                      placeholder="admin@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="bg-white/50 dark:bg-slate-800/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      required 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-white/50 dark:bg-slate-800/50"
+                    />
+                  </div>
+                </>
+              )}
 
               <Button 
                 type="submit" 

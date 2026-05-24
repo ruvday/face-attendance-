@@ -1,56 +1,90 @@
 import { Request, Response } from 'express';
-import { pool } from '../db';
+import { supabase } from '../db/supabase';
 import bcrypt from 'bcrypt';
 
 export const getTenants = async (req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM tenants ORDER BY created_at DESC');
-    res.json(result.rows);
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch tenants' });
   }
 };
 
 export const createTenant = async (req: Request, res: Response) => {
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
     const { name, slug, adminEmail, adminPassword, adminName } = req.body;
 
     // Create tenant
-    const tenantResult = await client.query(
-      'INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id',
-      [name, slug]
-    );
-    const tenantId = tenantResult.rows[0].id;
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .insert({ name, slug })
+      .select('id')
+      .single();
+
+    if (tenantError) throw tenantError;
+
+    // Get admin role id
+    const { data: role } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('name', 'admin')
+      .single();
 
     // Create admin user
     const hash = await bcrypt.hash(adminPassword, 10);
-    await client.query(`
-      INSERT INTO users (tenant_id, role_id, email, password_hash, full_name)
-      VALUES ($1, (SELECT id FROM roles WHERE name = 'admin'), $2, $3, $4)
-    `, [tenantId, adminEmail, hash, adminName]);
+    const { error: userError } = await supabase
+      .from('users')
+      .insert({
+        tenant_id: tenant.id,
+        role_id: role!.id,
+        email: adminEmail,
+        password_hash: hash,
+        full_name: adminName,
+      });
 
-    await client.query('COMMIT');
-    res.status(201).json({ message: 'Tenant created successfully', tenantId });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Failed to create tenant' });
-  } finally {
-    client.release();
+    if (userError) {
+      // Rollback tenant creation
+      await supabase.from('tenants').delete().eq('id', tenant.id);
+      throw userError;
+    }
+
+    res.status(201).json({ message: 'Tenant created successfully', tenantId: tenant.id });
+  } catch (error: any) {
+    console.error('Create tenant error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create tenant' });
   }
 };
 
 export const getAdmins = async (req: Request, res: Response) => {
   try {
-    const result = await pool.query(`
-      SELECT u.id, u.email, u.full_name, u.is_active, u.created_at, t.name as tenant_name, t.id as tenant_id
-      FROM users u
-      JOIN tenants t ON u.tenant_id = t.id
-      WHERE u.role_id = (SELECT id FROM roles WHERE name = 'admin')
-      ORDER BY u.created_at DESC
-    `);
-    res.json(result.rows);
+    const { data: role } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('name', 'admin')
+      .single();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, full_name, is_active, created_at, tenant_id, tenants(name)')
+      .eq('role_id', role!.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Flatten tenant name
+    const result = (data || []).map((u: any) => ({
+      ...u,
+      tenant_name: u.tenants?.name || null,
+      tenants: undefined,
+    }));
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch admins' });
   }
@@ -60,10 +94,24 @@ export const createAdmin = async (req: Request, res: Response) => {
   try {
     const { tenantId, email, password, fullName } = req.body;
     const hash = await bcrypt.hash(password, 10);
-    await pool.query(`
-      INSERT INTO users (tenant_id, role_id, email, password_hash, full_name)
-      VALUES ($1, (SELECT id FROM roles WHERE name = 'admin'), $2, $3, $4)
-    `, [tenantId, email, hash, fullName]);
+
+    const { data: role } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('name', 'admin')
+      .single();
+
+    const { error } = await supabase
+      .from('users')
+      .insert({
+        tenant_id: tenantId,
+        role_id: role!.id,
+        email,
+        password_hash: hash,
+        full_name: fullName,
+      });
+
+    if (error) throw error;
     res.status(201).json({ message: 'Admin created successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create admin' });
@@ -73,13 +121,23 @@ export const createAdmin = async (req: Request, res: Response) => {
 export const deleteAdmin = async (req: Request, res: Response) => {
   try {
     const adminId = req.params.id;
-    const result = await pool.query(
-      `DELETE FROM users 
-       WHERE id = $1 AND role_id = (SELECT id FROM roles WHERE name = 'admin')`,
-      [adminId]
-    );
 
-    if (result.rowCount === 0) {
+    const { data: role } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('name', 'admin')
+      .single();
+
+    const { data, error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', adminId)
+      .eq('role_id', role!.id)
+      .select();
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
       return res.status(404).json({ error: 'Admin not found' });
     }
 
@@ -92,9 +150,15 @@ export const deleteAdmin = async (req: Request, res: Response) => {
 export const deleteTenant = async (req: Request, res: Response) => {
   try {
     const tenantId = req.params.id;
-    const result = await pool.query('DELETE FROM tenants WHERE id = $1', [tenantId]);
+    const { data, error } = await supabase
+      .from('tenants')
+      .delete()
+      .eq('id', tenantId)
+      .select();
 
-    if (result.rowCount === 0) {
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
 
@@ -103,4 +167,3 @@ export const deleteTenant = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to delete tenant' });
   }
 };
-

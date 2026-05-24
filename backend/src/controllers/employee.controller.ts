@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { pool } from '../db';
+import { supabase } from '../db/supabase';
 
 // Simple euclidean distance between two embedding vectors
 function euclideanDistance(v1: number[], v2: number[]) {
@@ -18,11 +18,15 @@ export const registerFace = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid face embedding' });
     }
 
-    await pool.query(`
-      UPDATE employees 
-      SET face_embedding = $1::jsonb, face_registered_at = CURRENT_TIMESTAMP
-      WHERE user_id = $2
-    `, [JSON.stringify(embedding), userId]);
+    const { error } = await supabase
+      .from('employees')
+      .update({
+        face_embedding: embedding,
+        face_registered_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) throw error;
 
     res.json({ message: 'Face registered successfully' });
   } catch (error) {
@@ -37,10 +41,13 @@ export const checkIn = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const tenantId = req.user!.tenant_id;
 
-    const empResult = await pool.query('SELECT id, face_embedding FROM employees WHERE user_id = $1', [userId]);
-    const employee = empResult.rows[0];
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('id, face_embedding')
+      .eq('user_id', userId)
+      .single();
 
-    if (!employee || !employee.face_embedding) {
+    if (empError || !employee || !employee.face_embedding) {
       return res.status(400).json({ error: 'Face not registered' });
     }
 
@@ -55,25 +62,56 @@ export const checkIn = async (req: Request, res: Response) => {
 
     // Record attendance
     const today = new Date().toISOString().split('T')[0];
-    
-    // UPSERT basically
-    await pool.query(`
-      INSERT INTO attendance (tenant_id, employee_id, date, check_in_at, face_confidence, location, device_fingerprint)
-      VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5, $6)
-      ON CONFLICT (employee_id, date) 
-      DO UPDATE SET 
-        check_out_at = CURRENT_TIMESTAMP, 
-        face_confidence = $4,
-        location = $5,
-        device_fingerprint = $6
-    `, [tenantId, employee.id, today, 1 - distance, location ? JSON.stringify(location) : null, deviceFingerprint]);
+    const confidence = 1 - distance;
+
+    // Check if attendance already exists for today
+    const { data: existing } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('employee_id', employee.id)
+      .eq('date', today)
+      .single();
+
+    if (existing) {
+      // Update with check_out
+      const { error: updateError } = await supabase
+        .from('attendance')
+        .update({
+          check_out_at: new Date().toISOString(),
+          face_confidence: confidence,
+          location: location || null,
+          device_fingerprint: deviceFingerprint || null,
+        })
+        .eq('id', existing.id);
+
+      if (updateError) throw updateError;
+    } else {
+      // Insert new attendance
+      const { error: insertError } = await supabase
+        .from('attendance')
+        .insert({
+          tenant_id: tenantId,
+          employee_id: employee.id,
+          date: today,
+          check_in_at: new Date().toISOString(),
+          face_confidence: confidence,
+          location: location || null,
+          device_fingerprint: deviceFingerprint || null,
+        });
+
+      if (insertError) throw insertError;
+    }
 
     // Emit websocket event
     const io = req.app.get('io');
     if (io) {
-      // Get user full name for notification
-      const userRes = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
-      const fullName = userRes.rows[0]?.full_name || 'An employee';
+      const { data: userData } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+
+      const fullName = userData?.full_name || 'An employee';
       io.to(`tenant_${tenantId}`).emit('attendance_marked', {
         employeeId: employee.id,
         fullName,
@@ -92,17 +130,27 @@ export const checkIn = async (req: Request, res: Response) => {
 export const getHistory = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    
-    const result = await pool.query(`
-      SELECT a.* 
-      FROM attendance a
-      JOIN employees e ON a.employee_id = e.id
-      WHERE e.user_id = $1
-      ORDER BY a.date DESC
-      LIMIT 30
-    `, [userId]);
-    
-    res.json(result.rows);
+
+    // Get employee id first
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!emp) {
+      return res.json([]);
+    }
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('employee_id', emp.id)
+      .order('date', { ascending: false })
+      .limit(30);
+
+    if (error) throw error;
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch history' });
   }

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS employees (
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   employee_code VARCHAR(100),
+  login_code VARCHAR(10),
   department VARCHAR(100),
   position VARCHAR(100),
   shift_id INTEGER REFERENCES shifts(id) ON DELETE SET NULL,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS employees (
   hire_date DATE,
   is_active BOOLEAN DEFAULT true,
   UNIQUE (tenant_id, employee_code),
+  UNIQUE (tenant_id, login_code),
   UNIQUE (user_id)
 );
 
