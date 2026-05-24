@@ -63,6 +63,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-httpServer.listen(env.PORT, () => {
-  console.log(`Server running on port ${env.PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  httpServer.listen(env.PORT, () => {
+    console.log(`Server running on port ${env.PORT}`);
+  });
+}
+
+export default app;

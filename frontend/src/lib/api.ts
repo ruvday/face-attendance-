@@ -1,7 +1,15 @@
 import axios from 'axios';
 
+// Dynamically determine the backend API base URL based on the current frontend hosting environment
+const getBaseURL = () => {
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://backend-rudvay1.vercel.app/api';
+  }
+  return 'http://localhost:5001/api';
+};
+
 export const api = axios.create({
-  baseURL: 'http://localhost:5001/api',
+  baseURL: getBaseURL(),
 });
 
 api.interceptors.request.use((config) => {
