@@ -5,6 +5,7 @@ interface User {
   email: string;
   role: string;
   tenant_id: string | null;
+  full_name?: string;
 }
 
 interface AuthState {
