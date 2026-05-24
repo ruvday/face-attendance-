@@ -21,3 +21,7 @@ yarn-error.log*
 # Ignore OS files
 .DS_Store
 Thumbs.db
+
+# Ignore sales documentation
+FaceAtend_Project_Documentation.md
+
