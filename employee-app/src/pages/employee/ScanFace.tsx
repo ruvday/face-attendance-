@@ -411,15 +411,6 @@ export default function ScanFace() {
             <UserCheck className="w-5 h-5" />
             {!ready ? loadingStatus : 'Mark Attendance'}
           </button>
-
-          <button
-            onClick={() => startScan('register')}
-            disabled={!ready || isProcessing}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-semibold disabled:opacity-40 active:scale-95 transition-all"
-          >
-            <ScanIcon className="w-4 h-4" />
-            Register / Update Face
-          </button>
         </div>
       )}
 
