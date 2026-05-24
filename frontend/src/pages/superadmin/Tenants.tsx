@@ -3,13 +3,13 @@ import { api } from '../../lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 
 export default function Tenants() {
-  const [tenants, setTenants] = useState([]);
+  const [tenants, setTenants] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,10 +44,25 @@ export default function Tenants() {
     }
   };
 
+  const handleDeleteTenant = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete company tenant "${name}"?\n\nThis will completely delete all associated company administrators, registered employees, database settings, and attendance logs. This action cannot be undone.`)) {
+      try {
+        await api.delete(`/super/tenants/${id}`);
+        toast({ title: 'Success', description: 'Tenant deleted successfully' });
+        loadTenants();
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to delete tenant', variant: 'destructive' });
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Tenants (Companies)</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Tenants (Companies)</h1>
+          <p className="text-slate-500 text-sm mt-1">Register and manage enterprise organizations on the SaaS platform.</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
@@ -100,21 +115,22 @@ export default function Tenants() {
               <TableHead>Plan</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tenants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-slate-500">No tenants found</TableCell>
+                <TableCell colSpan={6} className="text-center py-6 text-slate-500">No tenants found</TableCell>
               </TableRow>
             ) : (
               tenants.map((tenant: any) => (
                 <TableRow key={tenant.id}>
-                  <TableCell className="font-medium">{tenant.name}</TableCell>
+                  <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{tenant.name}</TableCell>
                   <TableCell>{tenant.slug}</TableCell>
-                  <TableCell className="capitalize">{tenant.plan}</TableCell>
+                  <TableCell className="capitalize font-medium text-blue-600 dark:text-blue-400">{tenant.plan}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
                       tenant.status === 'active' 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
@@ -123,6 +139,16 @@ export default function Tenants() {
                     </span>
                   </TableCell>
                   <TableCell>{new Date(tenant.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={() => handleDeleteTenant(tenant.id, tenant.name)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}

@@ -89,3 +89,18 @@ export const deleteAdmin = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteTenant = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.params.id;
+    const result = await pool.query('DELETE FROM tenants WHERE id = $1', [tenantId]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    res.json({ message: 'Tenant deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete tenant' });
+  }
+};
+
