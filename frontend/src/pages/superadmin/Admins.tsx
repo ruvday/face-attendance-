@@ -9,8 +9,8 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 
 export default function Admins() {
-  const [admins, setAdmins] = useState([]);
-  const [tenants, setTenants] = useState([]);
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ tenantId: '', fullName: '', email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
