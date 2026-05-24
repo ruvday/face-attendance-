@@ -21,14 +21,14 @@ async function initDB() {
     if (res.rows.length === 0) {
       console.log('Creating default super admin...');
       const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('superadmin123', 10);
+      const hash = await bcrypt.hash('Rudvay@16042026', 10);
       
       await pool.query(`
         INSERT INTO users (role_id, email, password_hash, full_name, is_active)
         VALUES ((SELECT id FROM roles WHERE name = 'super_admin'), $1, $2, $3, true)
-      `, ['admin@faceatend.com', hash, 'Super Admin']);
+      `, ['face.rudvay@gmail.com', hash, 'Super Admin']);
       
-      console.log('Super admin created: admin@faceatend.com / superadmin123');
+      console.log('Super admin created: face.rudvay@gmail.com / Rudvay@16042026');
     }
 
   } catch (error) {
