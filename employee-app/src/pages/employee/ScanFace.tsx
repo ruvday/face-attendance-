@@ -401,7 +401,7 @@ export default function ScanFace() {
       </div>
 
       {/* Controls */}
-      {(phase === 'idle' || phase === 'success' || phase === 'failed') && !isProcessing && (
+      {phase === 'idle' && !isProcessing && (
         <div className="w-full space-y-3">
           <button
             onClick={() => startScan('checkin')}
