@@ -66,3 +66,36 @@ export const getAttendance = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch attendance' });
   }
 };
+
+export const deleteEmployee = async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tenantId = req.user!.tenant_id;
+    const employeeId = req.params.id;
+
+    // First get the user_id associated with the employee
+    const empRes = await client.query(
+      'SELECT user_id FROM employees WHERE id = $1 AND tenant_id = $2',
+      [employeeId, tenantId]
+    );
+
+    if (empRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    const userId = empRes.rows[0].user_id;
+
+    // Delete user (cascade will delete employee table row)
+    await client.query('DELETE FROM users WHERE id = $1 AND tenant_id = $2', [userId, tenantId]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Failed to delete employee' });
+  } finally {
+    client.release();
+  }
+};

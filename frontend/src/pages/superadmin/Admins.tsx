@@ -3,7 +3,7 @@ import { api } from '../../lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { Plus, Shield } from 'lucide-react';
+import { Plus, Shield, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -59,6 +59,18 @@ export default function Admins() {
       toast({ title: 'Error', description: 'Failed to create admin', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete administrator "${name}"? This action cannot be undone.`)) {
+      try {
+        await api.delete(`/super/admins/${id}`);
+        toast({ title: 'Success', description: 'Administrator deleted successfully' });
+        loadAdmins();
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to delete administrator', variant: 'destructive' });
+      }
     }
   };
 
@@ -129,12 +141,13 @@ export default function Admins() {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {admins.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-6 text-slate-500">No administrators found</TableCell>
+                <TableCell colSpan={7} className="text-center py-6 text-slate-500">No administrators found</TableCell>
               </TableRow>
             ) : (
               admins.map((admin: any) => (
@@ -160,6 +173,16 @@ export default function Admins() {
                     </span>
                   </TableCell>
                   <TableCell>{new Date(admin.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={() => handleDeleteAdmin(admin.id, admin.full_name)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}

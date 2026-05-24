@@ -70,3 +70,22 @@ export const createAdmin = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteAdmin = async (req: Request, res: Response) => {
+  try {
+    const adminId = req.params.id;
+    const result = await pool.query(
+      `DELETE FROM users 
+       WHERE id = $1 AND role_id = (SELECT id FROM roles WHERE name = 'admin')`,
+      [adminId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    res.json({ message: 'Admin deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete admin' });
+  }
+};
+

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
-import { getTenants, createTenant, getAdmins, createAdmin } from '../controllers/superadmin.controller';
+import { getTenants, createTenant, getAdmins, createAdmin, deleteAdmin } from '../controllers/superadmin.controller';
 
 const router = Router();
 
@@ -12,5 +12,6 @@ router.post('/tenants', createTenant);
 
 router.get('/admins', getAdmins);
 router.post('/admins', createAdmin);
+router.delete('/admins/:id', deleteAdmin);
 
 export default router;
